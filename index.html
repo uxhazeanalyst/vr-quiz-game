@@ -70,10 +70,13 @@
           (source) => source.hand
         );
 
+        console.log("Hand Input Sources:", handInputSources); // Debug
+
         handInputSources.forEach((inputSource) => {
           const hand = handModelFactory.createHandModel(inputSource, "mesh");
           scene.add(hand);
           hands.push({ hand, inputSource });
+          console.log("Hand added to scene:", hand); // Debug
         });
       });
 
@@ -85,6 +88,9 @@
         hands.forEach(({ hand, inputSource }) => {
           const handJoints = inputSource.hand;
 
+          // Debug: Log joint positions
+          console.log("Hand joints:", handJoints);
+
           // Detect index finger position
           const indexFingerJoint = handJoints.get("index-finger-tip");
           if (indexFingerJoint) {
@@ -92,6 +98,8 @@
             handPosition.setFromMatrixPosition(indexFingerJoint.targetRaySpace.matrixWorld);
 
             const distance = handPosition.distanceTo(sphere.position);
+
+            console.log("Hand position:", handPosition, "Distance:", distance); // Debug
 
             // Start grabbing when close to the sphere
             if (distance < 0.5 && !isGrabbing) {
