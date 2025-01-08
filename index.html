@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Clickable Globe</title>
+    <meta
+      name="description"
+      content="Floating Orb VR Experience for Meta Quest" />
+    <title>Floating Orb VR</title>
     <style>
       body {
         margin: 0;
@@ -17,76 +20,56 @@
   <body>
     <script type="module">
       import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.module.js";
-      import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.153.0/examples/jsm/controls/OrbitControls.js";
+      import { XRButton } from "https://cdn.jsdelivr.net/npm/three@0.153.0/examples/jsm/webxr/XRButton.js";
 
       // Scene setup
       const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x000000); // Black background
+
+      // Camera setup
       const camera = new THREE.PerspectiveCamera(
-        75,
+        70,
         window.innerWidth / window.innerHeight,
         0.1,
         1000
       );
-      const renderer = new THREE.WebGLRenderer();
+      camera.position.set(0, 1.6, 3); // Typical VR user height
+
+      // Renderer setup
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
       document.body.appendChild(renderer.domElement);
 
-      // Add controls
-      const controls = new OrbitControls(camera, renderer.domElement);
-      camera.position.set(0, 1.6, 3);
+      // Add VR Button
+      document.body.appendChild(XRButton.createButton(renderer));
 
-      // Base globe
-      const globeGeometry = new THREE.SphereGeometry(1, 32, 32);
-      const globeMaterial = new THREE.MeshStandardMaterial({
-        color: 0x0077ff, // Placeholder color
-        wireframe: false,
+      // Floating Orb
+      const geometry = new THREE.SphereGeometry(0.5, 32, 32);
+      const material = new THREE.MeshStandardMaterial({
+        color: 0x00ffcc,
+        emissive: 0x003366,
       });
-      const globe = new THREE.Mesh(globeGeometry, globeMaterial);
-      scene.add(globe);
-
-      // Add continents (placeholders for interactivity)
-      const continentGeometry = new THREE.SphereGeometry(1.02, 32, 32);
-      const continentMaterial = new THREE.MeshStandardMaterial({
-        color: 0x00ff00, // Highlighted color
-        opacity: 0.5,
-        transparent: true,
-      });
-      const continentOverlay = new THREE.Mesh(continentGeometry, continentMaterial);
-      scene.add(continentOverlay);
+      const sphere = new THREE.Mesh(geometry, material);
+      sphere.position.set(0, 1.6, -1); // In front of the user
+      scene.add(sphere);
 
       // Lighting
       const light = new THREE.PointLight(0xffffff, 1, 100);
-      light.position.set(5, 5, 5);
+      light.position.set(2, 3, 4);
       scene.add(light);
 
-      // Raycaster for clicks
-      const raycaster = new THREE.Raycaster();
-      const mouse = new THREE.Vector2();
-
-      // Click event
-      function onClick(event) {
-        // Calculate mouse position in normalized device coordinates
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-        // Update raycaster
-        raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObject(continentOverlay);
-
-        if (intersects.length > 0) {
-          // Highlight the continent
-          continentOverlay.material.color.set(0xff0000); // Change color to red
-
-          // Load NASA image
-          const nasaTexture = new THREE.TextureLoader().load(
-            "https://visibleearth.nasa.gov/images/72670/southern-norway/72673l"
-          );
-          globe.material.map = nasaTexture;
-          globe.material.needsUpdate = true;
-        }
+      // Animation loop
+      function animate() {
+        sphere.rotation.y += 0.01; // Rotate the orb
+        renderer.setAnimationLoop(render);
       }
 
-      window.addEventListener("click", onClick);
+      function render() {
+        renderer.render(scene, camera);
+      }
+
+      animate();
 
       // Handle window resize
       window.addEventListener("resize", () => {
@@ -94,15 +77,6 @@
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
       });
-
-      // Animation loop
-      function animate() {
-        globe.rotation.y += 0.001; // Slow rotation
-        renderer.render(scene, camera);
-        requestAnimationFrame(animate);
-      }
-
-      animate();
     </script>
   </body>
 </html>
