@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Floating Orb VR Experience for Meta Quest" />
+      content="Floating Orb VR Experience with Hand Tracking" />
     <title>Floating Orb VR</title>
     <style>
       body {
@@ -21,6 +21,7 @@
     <script type="module">
       import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.module.js";
       import { XRButton } from "https://cdn.jsdelivr.net/npm/three@0.153.0/examples/jsm/webxr/XRButton.js";
+      import { HandModelFactory } from "https://cdn.jsdelivr.net/npm/three@0.153.0/examples/jsm/webxr/HandModelFactory.js";
 
       // Scene setup
       const scene = new THREE.Scene();
@@ -59,9 +60,62 @@
       light.position.set(2, 3, 4);
       scene.add(light);
 
+      // Hand Tracking
+      const handModelFactory = new HandModelFactory();
+      const hands = [];
+
+      renderer.xr.addEventListener("sessionstart", () => {
+        const session = renderer.xr.getSession();
+        const handInputSources = session.inputSources.filter(
+          (source) => source.hand
+        );
+
+        handInputSources.forEach((inputSource) => {
+          const hand = handModelFactory.createHandModel(inputSource, "mesh");
+          scene.add(hand);
+          hands.push({ hand, inputSource });
+        });
+      });
+
+      // Interaction logic
+      let isGrabbing = false;
+      let prevHandPosition = null;
+
+      function trackHands() {
+        hands.forEach(({ hand, inputSource }) => {
+          const handJoints = inputSource.hand;
+
+          // Detect index finger position
+          const indexFingerJoint = handJoints.get("index-finger-tip");
+          if (indexFingerJoint) {
+            const handPosition = new THREE.Vector3();
+            handPosition.setFromMatrixPosition(indexFingerJoint.targetRaySpace.matrixWorld);
+
+            const distance = handPosition.distanceTo(sphere.position);
+
+            // Start grabbing when close to the sphere
+            if (distance < 0.5 && !isGrabbing) {
+              isGrabbing = true;
+              prevHandPosition = handPosition.clone();
+            } else if (distance >= 0.5) {
+              isGrabbing = false;
+              prevHandPosition = null;
+            }
+
+            // Rotate the sphere while grabbing
+            if (isGrabbing && prevHandPosition) {
+              const delta = handPosition.clone().sub(prevHandPosition);
+              sphere.rotation.y += delta.x * 0.05; // Rotate horizontally
+              sphere.rotation.x += delta.y * 0.05; // Rotate vertically
+              prevHandPosition.copy(handPosition);
+            }
+          }
+        });
+      }
+
       // Animation loop
       function animate() {
-        sphere.rotation.y += 0.01; // Rotate the orb
+        trackHands(); // Update hand interactions
         renderer.setAnimationLoop(render);
       }
 
