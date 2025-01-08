@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Floating Orb VR Experience for Meta Quest" />
-    <title>Floating Orb VR</title>
+      content="Interactive Globe with Hand Tracking for Meta Quest" />
+    <title>Interactive Globe VR</title>
     <style>
       body {
         margin: 0;
@@ -21,6 +21,7 @@
     <script type="module">
       import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.module.js";
       import { XRButton } from "https://cdn.jsdelivr.net/npm/three@0.153.0/examples/jsm/webxr/XRButton.js";
+      import { HandModelFactory } from "https://cdn.jsdelivr.net/npm/three@0.153.0/examples/jsm/webxr/HandModelFactory.js";
 
       // Scene setup
       const scene = new THREE.Scene();
@@ -44,24 +45,79 @@
       // Add VR Button
       document.body.appendChild(XRButton.createButton(renderer));
 
-      // Floating Orb
-      const geometry = new THREE.SphereGeometry(0.5, 32, 32);
-      const material = new THREE.MeshStandardMaterial({
-        color: 0x00ffcc,
-        emissive: 0x003366,
-      });
-      const sphere = new THREE.Mesh(geometry, material);
-      sphere.position.set(0, 1.6, -1); // In front of the user
-      scene.add(sphere);
-
       // Lighting
       const light = new THREE.PointLight(0xffffff, 1, 100);
       light.position.set(2, 3, 4);
       scene.add(light);
 
+      // Load Earth texture
+      const textureLoader = new THREE.TextureLoader();
+      const earthTexture = textureLoader.load(
+        "https://visibleearth.nasa.gov/images/92694/topography/92694l.jpg"
+      );
+
+      // Create Globe
+      const globeGeometry = new THREE.SphereGeometry(0.5, 64, 64);
+      const globeMaterial = new THREE.MeshStandardMaterial({
+        map: earthTexture,
+      });
+      const globe = new THREE.Mesh(globeGeometry, globeMaterial);
+      globe.position.set(0, 1.6, -1); // In front of the user
+      scene.add(globe);
+
+      // Hand Tracking
+      const handModelFactory = new HandModelFactory();
+      const hands = [];
+
+      renderer.xr.addEventListener("sessionstart", () => {
+        const session = renderer.xr.getSession();
+        const handInputSources = session.inputSources.filter(
+          (source) => source.hand
+        );
+
+        handInputSources.forEach((inputSource) => {
+          const hand = handModelFactory.createHandModel(inputSource, "mesh");
+          scene.add(hand);
+          hands.push({ hand, inputSource });
+        });
+      });
+
+      // Track Globe Interaction
+      let isGrabbing = false;
+      let prevHandPosition = null;
+
+      function trackHands() {
+        hands.forEach(({ hand, inputSource }) => {
+          const handJoints = inputSource.hand;
+
+          // Check if index finger is near the globe
+          const indexFingerJoint = handJoints.get("index-finger-tip");
+          if (indexFingerJoint) {
+            const pos = indexFingerJoint.targetRaySpace;
+            const distance = pos.distanceTo(globe.position);
+
+            if (distance < 0.3 && !isGrabbing) {
+              isGrabbing = true;
+              prevHandPosition = pos.clone();
+            } else if (distance >= 0.3) {
+              isGrabbing = false;
+              prevHandPosition = null;
+            }
+
+            // Rotate globe if grabbing
+            if (isGrabbing && prevHandPosition) {
+              const delta = pos.clone().sub(prevHandPosition);
+              globe.rotation.y += delta.x * 0.05;
+              globe.rotation.x += delta.y * 0.05;
+              prevHandPosition.copy(pos);
+            }
+          }
+        });
+      }
+
       // Animation loop
       function animate() {
-        sphere.rotation.y += 0.01; // Rotate the orb
+        trackHands();
         renderer.setAnimationLoop(render);
       }
 
